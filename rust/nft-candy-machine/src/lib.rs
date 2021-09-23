@@ -17,7 +17,10 @@ use {
     std::cell::Ref,
 };
 
+anchor_lang::solana_program::declare_id!("SLot3MfJ8RbsJR2KbJtxVcnsP2MQvcHW5DKnuT81s2U");
+
 const PREFIX: &str = "candy_machine";
+
 #[program]
 pub mod nft_candy_machine {
     use anchor_lang::solana_program::{
@@ -28,7 +31,7 @@ pub mod nft_candy_machine {
     use super::*;
 
     pub fn mint_nft<'info>(ctx: Context<'_, '_, '_, 'info, MintNFT<'info>>) -> ProgramResult {
-        let candy_machine = &mut ctx.accounts.candy_machine;
+        let candy_machine = ctx.accounts.candy_machine.clone();
         let config = &ctx.accounts.config;
         let clock = &ctx.accounts.clock;
 
@@ -79,18 +82,33 @@ pub mod nft_candy_machine {
                 return Err(ErrorCode::NotEnoughSOL.into());
             }
 
-            invoke(
-                &system_instruction::transfer(
-                    &ctx.accounts.payer.key,
-                    ctx.accounts.wallet.key,
-                    candy_machine.data.price,
-                ),
-                &[
-                    ctx.accounts.payer.clone(),
-                    ctx.accounts.wallet.clone(),
-                    ctx.accounts.system_program.clone(),
-                ],
-            )?;
+            // send_mint_part(*ctx.accounts.payer, &candy_machine, &config.data, &ctx.accounts.creator_1, ctx.accounts.system_program.clone())?;
+            // send_mint_part(*ctx.accounts.payer, &candy_machine, &config.data, &ctx.accounts.creator_2, ctx.accounts.system_program.clone())?;
+            // send_mint_part(*ctx.accounts.payer, &candy_machine, &config.data, &ctx.accounts.creator_3, ctx.accounts.system_program.clone())?;
+            // send_mint_part(*ctx.accounts.payer, &candy_machine, &config.data, &ctx.accounts.creator_4, ctx.accounts.system_program.clone())?;
+
+            let found_creator = config.data.creators.iter()
+                .find(|it| it.address.eq(ctx.accounts.creator_1.key));
+
+            if let Some(value) = found_creator {
+                let lamports = candy_machine.data.price.checked_mul(value.share as u64).unwrap()
+                    .checked_div(100).unwrap();
+
+                invoke(
+                    &system_instruction::transfer(
+                        &ctx.accounts.payer.key,
+                        ctx.accounts.creator_1.key,
+                        lamports,
+                    ),
+                    &[
+                        ctx.accounts.payer.clone(),
+                        ctx.accounts.creator_1.clone(),
+                        ctx.accounts.system_program.clone(),
+                    ],
+                )?;
+            } else {
+                return Err(ErrorCode::CreatorNotFound.into());
+            }
         }
 
         let config_line = get_config_line(
@@ -98,7 +116,8 @@ pub mod nft_candy_machine {
             candy_machine.items_redeemed as usize,
         )?;
 
-        candy_machine.items_redeemed = candy_machine
+        let mut_candy = &mut ctx.accounts.candy_machine;
+        mut_candy.items_redeemed = mut_candy
             .items_redeemed
             .checked_add(1)
             .ok_or(ErrorCode::NumericalOverflowError)?;
@@ -330,8 +349,8 @@ pub mod nft_candy_machine {
                 .ok_or(ErrorCode::NumericalOverflowError)?;
             let my_position_in_vec = bit_mask_vec_start
                 + position
-                    .checked_div(8)
-                    .ok_or(ErrorCode::NumericalOverflowError)?;
+                .checked_div(8)
+                .ok_or(ErrorCode::NumericalOverflowError)?;
             let position_from_right = 7 - position
                 .checked_rem(8)
                 .ok_or(ErrorCode::NumericalOverflowError)?;
@@ -413,13 +432,13 @@ pub mod nft_candy_machine {
 #[derive(Accounts)]
 #[instruction(bump: u8, data: CandyMachineData)]
 pub struct InitializeCandyMachine<'info> {
-    #[account(init, seeds=[PREFIX.as_bytes(), config.key().as_ref(), data.uuid.as_bytes()], payer=payer, bump=bump, space=8+32+32+33+32+64+64+64+200)]
+    #[account(init, seeds = [PREFIX.as_bytes(), config.key().as_ref(), data.uuid.as_bytes()], payer = payer, bump = bump, space = 8 + 32 + 32 + 33 + 32 + 64 + 64 + 64 + 200)]
     candy_machine: ProgramAccount<'info, CandyMachine>,
-    #[account(constraint= wallet.owner == &spl_token::id() || (wallet.data_is_empty() && wallet.lamports() > 0) )]
+    #[account(constraint = wallet.owner == & spl_token::id() || (wallet.data_is_empty() && wallet.lamports() > 0))]
     wallet: AccountInfo<'info>,
-    #[account(has_one=authority)]
+    #[account(has_one = authority)]
     config: ProgramAccount<'info, Config>,
-    #[account(signer, constraint= authority.data_is_empty() && authority.lamports() > 0)]
+    #[account(signer, constraint = authority.data_is_empty() && authority.lamports() > 0)]
     authority: AccountInfo<'info>,
     #[account(mut, signer)]
     payer: AccountInfo<'info>,
@@ -431,9 +450,9 @@ pub struct InitializeCandyMachine<'info> {
 #[derive(Accounts)]
 #[instruction(data: ConfigData)]
 pub struct InitializeConfig<'info> {
-    #[account(mut, constraint= config.to_account_info().owner == program_id && config.to_account_info().data_len() >= CONFIG_ARRAY_START+4+(data.max_number_of_lines as usize)*CONFIG_LINE_SIZE + 4 + (data.max_number_of_lines.checked_div(8).ok_or(ErrorCode::NumericalOverflowError)? as usize))]
+    #[account(mut, constraint = config.to_account_info().owner == program_id && config.to_account_info().data_len() >= CONFIG_ARRAY_START + 4 + (data.max_number_of_lines as usize) * CONFIG_LINE_SIZE + 4 + (data.max_number_of_lines.checked_div(8).ok_or(ErrorCode::NumericalOverflowError) ? as usize))]
     config: AccountInfo<'info>,
-    #[account(constraint= authority.data_is_empty() && authority.lamports() > 0 )]
+    #[account(constraint = authority.data_is_empty() && authority.lamports() > 0)]
     authority: AccountInfo<'info>,
     #[account(mut, signer)]
     payer: AccountInfo<'info>,
@@ -452,11 +471,11 @@ pub struct AddConfigLines<'info> {
 pub struct MintNFT<'info> {
     config: ProgramAccount<'info, Config>,
     #[account(
-        mut,
-        has_one = config,
-        has_one = wallet,
-        seeds = [PREFIX.as_bytes(), config.key().as_ref(), candy_machine.data.uuid.as_bytes()],
-        bump = candy_machine.bump,
+    mut,
+    has_one = config,
+    has_one = wallet,
+    seeds = [PREFIX.as_bytes(), config.key().as_ref(), candy_machine.data.uuid.as_bytes()],
+    bump = candy_machine.bump,
     )]
     candy_machine: ProgramAccount<'info, CandyMachine>,
     #[account(mut, signer)]
@@ -474,6 +493,14 @@ pub struct MintNFT<'info> {
     #[account(signer)]
     update_authority: AccountInfo<'info>,
     #[account(mut)]
+    creator_1: AccountInfo<'info>,
+    #[account(mut)]
+    creator_2: AccountInfo<'info>,
+    #[account(mut)]
+    creator_3: AccountInfo<'info>,
+    #[account(mut)]
+    creator_4: AccountInfo<'info>,
+    #[account(mut)]
     master_edition: AccountInfo<'info>,
     #[account(address = spl_token_metadata::id())]
     token_metadata_program: AccountInfo<'info>,
@@ -488,10 +515,10 @@ pub struct MintNFT<'info> {
 #[derive(Accounts)]
 pub struct UpdateCandyMachine<'info> {
     #[account(
-        mut,
-        has_one = authority,
-        seeds = [PREFIX.as_bytes(), candy_machine.config.key().as_ref(), candy_machine.data.uuid.as_bytes()],
-        bump = candy_machine.bump
+    mut,
+    has_one = authority,
+    seeds = [PREFIX.as_bytes(), candy_machine.config.key().as_ref(), candy_machine.data.uuid.as_bytes()],
+    bump = candy_machine.bump
     )]
     candy_machine: ProgramAccount<'info, CandyMachine>,
     #[account(signer)]
@@ -519,14 +546,14 @@ pub struct CandyMachineData {
 }
 
 pub const CONFIG_ARRAY_START: usize = 32 + // authority
-4 + 6 + // uuid + u32 len
-4 + MAX_SYMBOL_LENGTH + // u32 len + symbol
-2 + // seller fee basis points
-1 + 4 + MAX_CREATOR_LIMIT*MAX_CREATOR_LEN + // optional + u32 len + actual vec
-8 + //max supply
-1 + // is mutable
-1 + // retain authority
-4; // max number of lines;
+    4 + 6 + // uuid + u32 len
+    4 + MAX_SYMBOL_LENGTH + // u32 len + symbol
+    2 + // seller fee basis points
+    1 + 4 + MAX_CREATOR_LIMIT * MAX_CREATOR_LEN + // optional + u32 len + actual vec
+    8 + //max supply
+    1 + // is mutable
+    1 + // retain authority
+    4; // max number of lines;
 
 #[account]
 #[derive(Default)]
@@ -576,6 +603,7 @@ pub fn get_config_line(
 }
 
 pub const CONFIG_LINE_SIZE: usize = 4 + MAX_NAME_LENGTH + 4 + MAX_URI_LENGTH;
+
 #[derive(AnchorSerialize, AnchorDeserialize, Debug)]
 pub struct ConfigLine {
     /// The name of the asset
@@ -624,4 +652,6 @@ pub enum ErrorCode {
     CandyMachineNotLiveYet,
     #[msg("Number of config lines must be at least number of items available")]
     ConfigLineMismatch,
+    #[msg("The provided creator was not found")]
+    CreatorNotFound,
 }

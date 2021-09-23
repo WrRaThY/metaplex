@@ -10,6 +10,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { CandyMachine, Config } from "./nft-candy-machine-types";
+
 const TOKEN_PROGRAM_ID = new PublicKey(
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 );
@@ -19,6 +20,7 @@ const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID = new PublicKey(
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
   "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 );
+
 function fromUTF8Array(data: number[]) {
   // array of bytes
   let str = "",
@@ -35,8 +37,8 @@ function fromUTF8Array(data: number[]) {
     } else if (value > 0xdf && value < 0xf0) {
       str += String.fromCharCode(
         ((value & 0x0f) << 12) |
-          ((data[i + 1] & 0x3f) << 6) |
-          (data[i + 2] & 0x3f)
+        ((data[i + 1] & 0x3f) << 6) |
+        (data[i + 2] & 0x3f)
       );
       i += 2;
     } else {
@@ -58,6 +60,7 @@ function fromUTF8Array(data: number[]) {
 
   return str;
 }
+
 export function createAssociatedTokenAccountInstruction(
   associatedTokenAddress: PublicKey,
   payer: PublicKey,
@@ -107,6 +110,7 @@ export function createAssociatedTokenAccountInstruction(
     data: Buffer.from([]),
   });
 }
+
 const configArrayStart =
   32 + // authority
   4 +
@@ -142,7 +146,7 @@ describe("nft-candy-machine", function () {
 
   // Address of the deployed program.
   const programId = new anchor.web3.PublicKey(
-    "cndyAnrLdpjq1Ssp1z8xxDsB8dxe7u4HL5Nxi2K5WXZ"
+    "SLot3MfJ8RbsJR2KbJtxVcnsP2MQvcHW5DKnuT81s2U"
   );
 
   const walletWrapper = new anchor.Wallet(myWallet);
@@ -211,7 +215,10 @@ describe("nft-candy-machine", function () {
         maxSupply: new anchor.BN(0),
         retainAuthority,
         creators: [
-          { address: myWallet.publicKey, verified: false, share: 100 },
+          {address: new PublicKey("CXTXCXzEC1q4baujYDA3bGtce14aovAiDM1MbGv4pLjx"), verified: false, share: 25},
+          {address: new PublicKey("2ngBpZ3fWojQ5MrWtJJHc1DXzyVEoZeDgApBV64MLV1n"), verified: false, share: 25},
+          {address: new PublicKey("5rN5ERBsS7xXKF39Ys9AGQuzRJTMSvEYTW69vb8zYfXx"), verified: false, share: 25},
+          {address: new PublicKey("4rReqqkspwT5ynYn45gsWZv1d955hbfYF9GtzqFo5Yc9"), verified: false, share: 25}
         ],
       },
       {
@@ -236,7 +243,7 @@ describe("nft-candy-machine", function () {
     };
     const firstVec = [];
     for (let i = 0; i < 5; i++) {
-      firstVec.push({ ...sample, name: `Sample ${i}` });
+      firstVec.push({...sample, name: `Sample ${i}`});
     }
 
     const tx1 = await program.instruction.addConfigLines(0, firstVec, {
@@ -249,7 +256,7 @@ describe("nft-candy-machine", function () {
     if (size != 5) {
       const secondVec = [];
       for (let i = 5; i < 10; i++) {
-        secondVec.push({ ...sample, name: `Sample ${i}` });
+        secondVec.push({...sample, name: `Sample ${i}`});
       }
       const tx2 = await program.instruction.addConfigLines(5, secondVec, {
         accounts: {
@@ -380,6 +387,96 @@ describe("nft-candy-machine", function () {
       assert.equal(machine.tokenMint, null);
     });
 
+    it("mints 1 NFT", async function () {
+      const mint = anchor.web3.Keypair.generate();
+      const token = await getTokenWallet(
+        this.authority.publicKey,
+        mint.publicKey
+      );
+      const metadata = await getMetadata(mint.publicKey);
+      const masterEdition = await getMasterEdition(mint.publicKey);
+      const [candyMachine, _] = await getCandyMachine(
+        this.config.publicKey,
+        this.candyMachineUuid
+      );
+      try {
+        const tx = await program.rpc.mintNft({
+          accounts: {
+            config: this.config.publicKey,
+            candyMachine: candyMachine,
+            payer: this.authority.publicKey,
+            wallet: myWallet.publicKey,
+            mint: mint.publicKey,
+            metadata,
+            masterEdition,
+            mintAuthority: this.authority.publicKey,
+            updateAuthority: this.authority.publicKey,
+            creator1: new PublicKey("CXTXCXzEC1q4baujYDA3bGtce14aovAiDM1MbGv4pLjx"),
+            creator2: new PublicKey("2ngBpZ3fWojQ5MrWtJJHc1DXzyVEoZeDgApBV64MLV1n"),
+            creator3: new PublicKey("5rN5ERBsS7xXKF39Ys9AGQuzRJTMSvEYTW69vb8zYfXx"),
+            creator4: new PublicKey("4rReqqkspwT5ynYn45gsWZv1d955hbfYF9GtzqFo5Yc9"),
+            tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+          },
+          signers: [mint, this.authority, myWallet],
+          instructions: [
+            // Give authority enough to pay off the cost of the nft!
+            // it'll be funnneled right back
+            anchor.web3.SystemProgram.transfer({
+              fromPubkey: myWallet.publicKey,
+              toPubkey: this.authority.publicKey,
+              lamports: 1000000000 + 10000000, // add minting fees in there
+            }),
+            anchor.web3.SystemProgram.createAccount({
+              fromPubkey: myWallet.publicKey,
+              newAccountPubkey: mint.publicKey,
+              space: MintLayout.span,
+              lamports:
+                await provider.connection.getMinimumBalanceForRentExemption(
+                  MintLayout.span
+                ),
+              programId: TOKEN_PROGRAM_ID,
+            }),
+            Token.createInitMintInstruction(
+              TOKEN_PROGRAM_ID,
+              mint.publicKey,
+              0,
+              this.authority.publicKey,
+              this.authority.publicKey
+            ),
+            createAssociatedTokenAccountInstruction(
+              token,
+              myWallet.publicKey,
+              this.authority.publicKey,
+              mint.publicKey
+            ),
+            Token.createMintToInstruction(
+              TOKEN_PROGRAM_ID,
+              mint.publicKey,
+              token,
+              this.authority.publicKey,
+              [],
+              1
+            ),
+          ],
+        });
+      } catch (e) {
+        console.log("Failure at ", e);
+        throw e;
+      }
+
+      const metadataAccount = await connection.getAccountInfo(metadata);
+      assert.ok(metadataAccount.data.length > 0);
+      const masterEditionAccount = await connection.getAccountInfo(
+        masterEdition
+      );
+      assert.ok(masterEditionAccount.data.length > 0);
+
+    });
+
     it("mints 10x and then ends due to being out of candy", async function () {
       for (let i = 0; i < 11; i++) {
         const mint = anchor.web3.Keypair.generate();
@@ -405,6 +502,10 @@ describe("nft-candy-machine", function () {
               masterEdition,
               mintAuthority: this.authority.publicKey,
               updateAuthority: this.authority.publicKey,
+              creator1: new PublicKey("CXTXCXzEC1q4baujYDA3bGtce14aovAiDM1MbGv4pLjx"),
+              creator2: new PublicKey("2ngBpZ3fWojQ5MrWtJJHc1DXzyVEoZeDgApBV64MLV1n"),
+              creator3: new PublicKey("5rN5ERBsS7xXKF39Ys9AGQuzRJTMSvEYTW69vb8zYfXx"),
+              creator4: new PublicKey("4rReqqkspwT5ynYn45gsWZv1d955hbfYF9GtzqFo5Yc9"),
               tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
               tokenProgram: TOKEN_PROGRAM_ID,
               systemProgram: SystemProgram.programId,
@@ -494,6 +595,10 @@ describe("nft-candy-machine", function () {
             masterEdition,
             mintAuthority: myWallet.publicKey,
             updateAuthority: myWallet.publicKey,
+            creator1: new PublicKey("CXTXCXzEC1q4baujYDA3bGtce14aovAiDM1MbGv4pLjx"),
+            creator2: new PublicKey("2ngBpZ3fWojQ5MrWtJJHc1DXzyVEoZeDgApBV64MLV1n"),
+            creator3: new PublicKey("5rN5ERBsS7xXKF39Ys9AGQuzRJTMSvEYTW69vb8zYfXx"),
+            creator4: new PublicKey("4rReqqkspwT5ynYn45gsWZv1d955hbfYF9GtzqFo5Yc9"),
             tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
@@ -587,6 +692,10 @@ describe("nft-candy-machine", function () {
             masterEdition,
             mintAuthority: this.authority.publicKey,
             updateAuthority: this.authority.publicKey,
+            creator1: new PublicKey("CXTXCXzEC1q4baujYDA3bGtce14aovAiDM1MbGv4pLjx"),
+            creator2: new PublicKey("2ngBpZ3fWojQ5MrWtJJHc1DXzyVEoZeDgApBV64MLV1n"),
+            creator3: new PublicKey("5rN5ERBsS7xXKF39Ys9AGQuzRJTMSvEYTW69vb8zYfXx"),
+            creator4: new PublicKey("4rReqqkspwT5ynYn45gsWZv1d955hbfYF9GtzqFo5Yc9"),
             tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
@@ -811,6 +920,10 @@ describe("nft-candy-machine", function () {
             masterEdition,
             mintAuthority: this.authority.publicKey,
             updateAuthority: this.authority.publicKey,
+            creator1: new PublicKey("CXTXCXzEC1q4baujYDA3bGtce14aovAiDM1MbGv4pLjx"),
+            creator2: new PublicKey("2ngBpZ3fWojQ5MrWtJJHc1DXzyVEoZeDgApBV64MLV1n"),
+            creator3: new PublicKey("5rN5ERBsS7xXKF39Ys9AGQuzRJTMSvEYTW69vb8zYfXx"),
+            creator4: new PublicKey("4rReqqkspwT5ynYn45gsWZv1d955hbfYF9GtzqFo5Yc9"),
             tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,

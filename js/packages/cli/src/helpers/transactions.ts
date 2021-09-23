@@ -56,12 +56,12 @@ export const sendTransactionWithRetryWithKeypair = async (
     beforeSend();
   }
 
-  const { txid, slot } = await sendSignedTransaction({
-    connection,
-    signedTransaction: transaction,
-  });
+    const { txid, slot } = await sendSignedTransaction({
+      connection,
+      signedTransaction: transaction,
+    });
 
-  return { txid, slot };
+    return { txid, slot };
 };
 
 export async function sendSignedTransaction({
@@ -129,7 +129,9 @@ export async function sendSignedTransaction({
       log.error('Simulate Transaction error', e);
     }
     if (simulateResult && simulateResult.err) {
+      log.warn("simRes", simulateResult.err)
       if (simulateResult.logs) {
+        log.warn("simRes logs", simulateResult.logs)
         for (let i = simulateResult.logs.length - 1; i >= 0; --i) {
           const line = simulateResult.logs[i];
           if (line.startsWith('Program log: ')) {

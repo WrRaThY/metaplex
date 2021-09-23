@@ -1,5 +1,8 @@
+use anchor_lang::{ProgramAccount};
+use anchor_lang::solana_program::program::invoke;
+use anchor_lang::solana_program::system_instruction;
+
 use {
-    crate::ErrorCode,
     anchor_lang::{
         prelude::{AccountInfo, ProgramError, ProgramResult, Pubkey},
         solana_program::{
@@ -7,7 +10,10 @@ use {
             program_pack::{IsInitialized, Pack},
         },
     },
+    crate::ErrorCode,
 };
+
+use crate::{CandyMachine, ConfigData};
 
 pub fn assert_initialized<T: Pack + IsInitialized>(
     account_info: &AccountInfo,
@@ -27,6 +33,7 @@ pub fn assert_owned_by(account: &AccountInfo, owner: &Pubkey) -> ProgramResult {
         Ok(())
     }
 }
+
 ///TokenTransferParams
 pub struct TokenTransferParams<'a: 'b, 'b> {
     /// source
@@ -68,4 +75,31 @@ pub fn spl_token_transfer(params: TokenTransferParams<'_, '_>) -> ProgramResult 
     );
 
     result.map_err(|_| ErrorCode::TokenTransferFailed.into())
+}
+
+pub fn send_mint_part<'info>(payer: &AccountInfo<'info>, candy_machine: &&mut ProgramAccount<CandyMachine>,
+                             config_data: &ConfigData, creator_info: &AccountInfo<'info>, system_program: AccountInfo<'info>) -> ProgramResult {
+    let found_creator = config_data.creators.iter()
+        .find(|it| it.address.eq(creator_info.key));
+    if let Some(value) = found_creator {
+        let lamports = candy_machine.data.price.checked_mul(value.share as u64).unwrap()
+            .checked_div(100).unwrap();
+
+        invoke(
+            &system_instruction::transfer(
+                payer.key,
+                creator_info.key,
+                lamports,
+            ),
+            &[
+                payer.clone(),
+                creator_info.clone(),
+                system_program.clone(),
+            ],
+        )?;
+
+        Ok(())
+    } else {
+        Err(ErrorCode::CreatorNotFound.into())
+    }
 }

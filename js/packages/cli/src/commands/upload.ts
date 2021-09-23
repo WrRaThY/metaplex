@@ -1,4 +1,4 @@
-import { EXTENSION_PNG, ARWEAVE_PAYMENT_WALLET } from '../helpers/constants';
+import { EXTENSION_PNG, ARWEAVE_PAYMENT_WALLET, EXTENSION_JSON } from '../helpers/constants';
 import path from 'path';
 import {
   createConfig,
@@ -79,7 +79,7 @@ export async function upload(
 
     let link = cacheContent?.items?.[index]?.link;
     if (!link || !cacheContent.program.uuid) {
-      const manifestPath = image.replace(EXTENSION_PNG, '.json');
+      const manifestPath = image.replace(EXTENSION_PNG, EXTENSION_JSON);
       const manifestContent = fs
         .readFileSync(manifestPath)
         .toString()

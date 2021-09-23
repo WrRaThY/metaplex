@@ -36,6 +36,7 @@ export async function mint(
     configAddress,
     uuid,
   );
+
   const candyMachine: any = await anchorProgram.account.candyMachine.fetch(
     candyMachineAddress,
   );
@@ -123,6 +124,10 @@ export async function mint(
         masterEdition,
         mintAuthority: userKeyPair.publicKey,
         updateAuthority: userKeyPair.publicKey,
+        creator1: new PublicKey("CXTXCXzEC1q4baujYDA3bGtce14aovAiDM1MbGv4pLjx"),
+        creator2: new PublicKey("2ngBpZ3fWojQ5MrWtJJHc1DXzyVEoZeDgApBV64MLV1n"),
+        creator3: new PublicKey("5rN5ERBsS7xXKF39Ys9AGQuzRJTMSvEYTW69vb8zYfXx"),
+        creator4: new PublicKey("4rReqqkspwT5ynYn45gsWZv1d955hbfYF9GtzqFo5Yc9"),
         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -152,4 +157,5 @@ export async function mint(
       signers,
     )
   ).txid;
+
 }
