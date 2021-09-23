@@ -13,7 +13,7 @@ use {
     crate::ErrorCode,
 };
 
-use crate::{CandyMachine, ConfigData};
+use crate::{CandyMachine, ConfigData, Config};
 
 pub fn assert_initialized<T: Pack + IsInitialized>(
     account_info: &AccountInfo,
@@ -77,12 +77,13 @@ pub fn spl_token_transfer(params: TokenTransferParams<'_, '_>) -> ProgramResult 
     result.map_err(|_| ErrorCode::TokenTransferFailed.into())
 }
 
-pub fn send_mint_part<'info>(payer: &AccountInfo<'info>, candy_machine: &&mut ProgramAccount<CandyMachine>,
-                             config_data: &ConfigData, creator_info: &AccountInfo<'info>, system_program: AccountInfo<'info>) -> ProgramResult {
-    let found_creator = config_data.creators.iter()
+pub fn send_mint_part<'info>(config: &Config, price: u64, creator_info: AccountInfo<'info>,
+                      payer: AccountInfo<'info>, system_program: AccountInfo<'info>) -> ProgramResult {
+    let found_creator = config.data.creators.iter()
         .find(|it| it.address.eq(creator_info.key));
-    if let Some(value) = found_creator {
-        let lamports = candy_machine.data.price.checked_mul(value.share as u64).unwrap()
+
+    return if let Some(value) = found_creator {
+        let lamports = price.checked_mul(value.share as u64).unwrap()
             .checked_div(100).unwrap();
 
         invoke(
@@ -92,9 +93,9 @@ pub fn send_mint_part<'info>(payer: &AccountInfo<'info>, candy_machine: &&mut Pr
                 lamports,
             ),
             &[
-                payer.clone(),
-                creator_info.clone(),
-                system_program.clone(),
+                payer,
+                creator_info,
+                system_program,
             ],
         )?;
 
@@ -102,4 +103,5 @@ pub fn send_mint_part<'info>(payer: &AccountInfo<'info>, candy_machine: &&mut Pr
     } else {
         Err(ErrorCode::CreatorNotFound.into())
     }
+
 }

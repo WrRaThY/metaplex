@@ -29,6 +29,7 @@ pub mod nft_candy_machine {
     };
 
     use super::*;
+    use crate::utils::send_mint_part;
 
     pub fn mint_nft<'info>(ctx: Context<'_, '_, '_, 'info, MintNFT<'info>>) -> ProgramResult {
         let candy_machine = ctx.accounts.candy_machine.clone();
@@ -82,33 +83,14 @@ pub mod nft_candy_machine {
                 return Err(ErrorCode::NotEnoughSOL.into());
             }
 
-            // send_mint_part(*ctx.accounts.payer, &candy_machine, &config.data, &ctx.accounts.creator_1, ctx.accounts.system_program.clone())?;
-            // send_mint_part(*ctx.accounts.payer, &candy_machine, &config.data, &ctx.accounts.creator_2, ctx.accounts.system_program.clone())?;
-            // send_mint_part(*ctx.accounts.payer, &candy_machine, &config.data, &ctx.accounts.creator_3, ctx.accounts.system_program.clone())?;
-            // send_mint_part(*ctx.accounts.payer, &candy_machine, &config.data, &ctx.accounts.creator_4, ctx.accounts.system_program.clone())?;
-
-            let found_creator = config.data.creators.iter()
-                .find(|it| it.address.eq(ctx.accounts.creator_1.key));
-
-            if let Some(value) = found_creator {
-                let lamports = candy_machine.data.price.checked_mul(value.share as u64).unwrap()
-                    .checked_div(100).unwrap();
-
-                invoke(
-                    &system_instruction::transfer(
-                        &ctx.accounts.payer.key,
-                        ctx.accounts.creator_1.key,
-                        lamports,
-                    ),
-                    &[
-                        ctx.accounts.payer.clone(),
-                        ctx.accounts.creator_1.clone(),
-                        ctx.accounts.system_program.clone(),
-                    ],
-                )?;
-            } else {
-                return Err(ErrorCode::CreatorNotFound.into());
-            }
+            send_mint_part(config, candy_machine.data.price, ctx.accounts.creator_1.clone(),
+                           ctx.accounts.payer.clone(), ctx.accounts.system_program.clone())?;
+            send_mint_part(config, candy_machine.data.price, ctx.accounts.creator_2.clone(),
+                           ctx.accounts.payer.clone(), ctx.accounts.system_program.clone())?;
+            send_mint_part(config, candy_machine.data.price, ctx.accounts.creator_3.clone(),
+                           ctx.accounts.payer.clone(), ctx.accounts.system_program.clone())?;
+            send_mint_part(config, candy_machine.data.price, ctx.accounts.creator_4.clone(),
+                           ctx.accounts.payer.clone(), ctx.accounts.system_program.clone())?;
         }
 
         let config_line = get_config_line(
