@@ -10,7 +10,7 @@ import {
 } from './utils';
 
 export const CANDY_MACHINE_PROGRAM = new anchor.web3.PublicKey(
-  'cndyAnrLdpjq1Ssp1z8xxDsB8dxe7u4HL5Nxi2K5WXZ',
+  'SLot3MfJ8RbsJR2KbJtxVcnsP2MQvcHW5DKnuT81s2U',
 );
 
 const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey(
