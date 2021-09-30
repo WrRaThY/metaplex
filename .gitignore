@@ -3,7 +3,7 @@ node_modules/
 **/*.rs.bk
 build/
 rust/test/nft-candy-machine.js
-**/dist/
+dist/
 lib/
 deploy/
 docs/lockup-ui/
@@ -31,5 +31,5 @@ hfuzz_workspace
 **/.DS_Store
 .cache
 js/packages/web/.env
-*.iml
-js/packages/common/package-lock.json
+traits
+traits-configuration.json
